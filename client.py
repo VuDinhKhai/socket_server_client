@@ -1,6 +1,8 @@
 import socket
 from PIL import Image
 import numpy as np
+import cv2
+import os
 
 host_name=socket.gethostname()
 HOST=socket.gethostbyname(host_name)
@@ -71,27 +73,30 @@ def decodeImg(img, key): # img = string, key của encodeImg
     print("Done")
     return img.astype(np.uint8)
 
-def chat():
+def chat(key):
     print("Chat:")
     try:
         while True:
             msg = input('Client: ')
-            s.sendall(bytes(msg, "utf8"))
+            ci_msg=cipherText(msg,key)
+            s.sendall(bytes(ci_msg, "utf8"))
             if msg == "quit":
-                functions()
+                functions(key)
                 break
             data = s.recv(1024)
-            print('Server: ', data.decode("utf8"))
+            str_data=data.decode("utf8")
+            de_data=decryptedText(str_data,key)
+            print('Server: ', de_data)
     finally:
         s.close()
 
-def sendtext():
+def Recvtext(key):
     print("Receive file text:")
     print("Nhap duong dan luu file: ")
     path=str(input())
     with open(path,'wb') as f:        #"D:/anhthe/khai.txt"
         print("file opened")
-        data=s.recv(1000000)
+        data=s.recv(100000000)
         f.write(data)
         print("data :", data)
         f.close()
@@ -99,28 +104,50 @@ def sendtext():
         #‘rb’	Mở file chế độ đọc cho định dạng nhị phân
         c=f.read()
         print("file text : ",c)
+        #l=decryptedText(c,key)
+        #print("file text : ",l)
+
     s.sendall(bytes("ok", "utf8"))
-    functions()
+    functions(key)
 
 
-def sendImage():
+def RecvImage(key):
     print("Receive image")
     print("Nhap duong dan luu anh: ")
     path=str(input())
-    # D:/anhthe/anhthe.jpg
+    # D:/anhthe/Doremon.jpg
     with open(path,'wb') as f:
         print("file opened")
         data=s.recv(1000000)
         f.write(data)
-        print(data)
+        #print(data)
         f.close()
-    with open(path, 'rb') as f:
-        im = Image.open(f)
-        im.show()
+    pathnew=deImage_k(path,key)
+    print("Anh nhan duoc: " ,pathnew)
     s.sendall(bytes("ok", "utf8"))
-    functions()
+    deletepath(path)
+    functions(key)
 
-def functions():
+def deImage_k(path,key):
+    file_img=cv2.imread(path)
+    img=np.array(file_img)
+    de=decodeImg(img,key)
+    de_image=Save_deImage(path,de)
+    return de_image
+
+def Save_deImage(path,cip):
+    tail = "." + path.split(".")[-1] # Lấy ra đuôi của file ảnh ban đầu VD: "C:/Kai.png" -> ".png"
+    path_save = "./"  # ./ là thư mục đang chạy này
+    name = "encode_Img" # Tên (Không cần đuôi)
+    cv2.imwrite(path_save + name + tail, cip) #  Lưu file
+    pathnew=path_save + name + tail
+    return pathnew
+
+def deletepath(path):
+    try: 
+        os.remove(path)
+    except: pass
+def functions(key):
     print("Chon cach truyen tin:")
     print("1: Chat")
     print("2: Receive file text")
@@ -128,19 +155,34 @@ def functions():
     print("4: End")
     x=int(input())
     if x==1:
-        chat()
+        chat(key)
     elif x==2:
-        sendtext()
+        Recvtext(key)
     elif x==3:
-        sendImage()
+        RecvImage(key)
     else:
         print("END")
         return
 
 def connect():
+    print("Nhap key: ")
+    key=str(input())
     print('connecting to %s port ' + str(server_address))
     s.connect(server_address)
-    functions()
+    print("Nhap key: ")
+    key=str(input())
+    data = s.recv(1024)
+    str_data=data.decode("utf8")
+    if str_data!=key:
+        s.disconnet(server_address)
+    functions(key)
 
 if __name__ == "__main__":
     connect()
+    # path=deImage_k("D:/anhthe/Doremon.jpg","key:VuxDDinhkhaideptraisieucapvippro%%%%%%%%%%%%$$$$$$$$$###########")
+    # with open(path, 'rb') as f:
+    #     im = Image.open(f)
+    #     im.show()
+    
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()

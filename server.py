@@ -1,6 +1,8 @@
 import socket
-#import threading
+import threading
 import numpy as np
+import cv2
+import os 
 
 host_name=socket.gethostname()
 HOST=socket.gethostbyname(host_name)
@@ -71,6 +73,26 @@ def decodeImg(img, key): # img = string, key của encodeImg
     print("Done")
     return img.astype(np.uint8)
 
+def deImage_k(path,key):
+    file_img=cv2.imread(path)
+    img=np.array(file_img)
+
+    cip=encodeImg(img,key)
+    return savepath(path,cip)
+
+def deletepath(path):
+    try: 
+        os.remove(path)
+    except: pass
+
+def savepath(path,cip):
+    tail = "." + path.split(".")[-1] # Lấy ra đuôi của file ảnh ban đầu VD: "C:/Kai.png" -> ".png"
+    path_save = "./"  # ./ là thư mục đang chạy này
+    name = "encode_Img" # Tên (Không cần đuôi)
+    cv2.imwrite(path_save + name + tail, cip) #  Lưu file
+    pathnew=path_save + name + tail
+    return pathnew
+
 def connect():
     print("Nhap key: ")
     key=str(input())
@@ -78,12 +100,13 @@ def connect():
     while True:
         try: 
             client, addr = s.accept()
-            functions(client,addr)
+            client.send(bytes(key,"utf8"))
+            functions(client,addr,key)
             break
         except:
             print("Run Client.py, Please")
     
-def functions(client,addr):
+def functions(client,addr,key):
     print("Chon cach truyen tin:")
     print("1: Chat")
     print("2: Send file text")
@@ -91,37 +114,42 @@ def functions(client,addr):
     print("4: End")
     x=int(input())
     if x==1:
-        chat(client,addr)
+        chat(client,addr,key)
     elif x==2:
-        sendtext(client,addr)
+        sendtext(client,addr,key)
     elif x==3:
-        sendImage(client,addr)
+        sendImage(client,addr,key)
     else:
         print("END")
         return
 
-def chat(client,addr):
+def chat(client,addr,key):
     print("Chat:")
     try:
         print('Connected by', addr)
         while True:
             data = client.recv(1024)
-            str_data = data.decode("utf8")
+            strdata = data.decode("utf8")
+            str_data=decryptedText(strdata,key)
             if str_data == "quit":
                 functions(client,addr)
             print("Client: " + str_data)
+
             msg = str(input("Server: "))
-            client.send(bytes(msg,"utf8"))
+            ci_msg=cipherText(msg,key)
+            client.send(bytes(ci_msg,"utf8"))
     finally:
         client.close()
 
-def sendtext(client,addr):
+def sendtext(client,addr,key):
     print("Send file text:")
     try:
         print('Connected by', addr)
         print("Nhap duong dan file text muon gui: ") #"D:/vscode/code Python/truyen_nhan_tin/VDK.txt"
         path=str(input())
         with open(path,'rb') as f:
+            #l=cipherText(f.read(),key)
+            #client.send(l)
             client.send(f.read())
             f.close()
         
@@ -132,14 +160,15 @@ def sendtext(client,addr):
     except:
         connect()        
 
-def sendImage(client,addr):
+def sendImage(client,addr,key):
     print("send image")
     print("Nhap duong dan gui anh: ")
     path=str(input())
-    #D:/vscode/code Python/truyen_nhan_tin/The.jpg
+    #D:/vscode/code Python/truyen_nhan_tin/Doremon.jpg
+    pathnew=deImage_k(path,key)
     try:
         #print('Connected by', addr)
-        with open(path,'rb') as f:
+        with open(pathnew,'rb') as f:
             #im=Image.open()
             #im.show()
             client.send(f.read())
@@ -149,6 +178,7 @@ def sendImage(client,addr):
         str_data = data.decode("utf8")
         if str_data == "ok":
             functions(client,addr)
+            deletepath(pathnew)
     except:
         connect()
 
@@ -157,7 +187,7 @@ def sendImage(client,addr):
     
 if __name__ == "__main__":
     connect()
-
+#key:VuxDDinhkhaideptraisieucapvippro%%%%%%%%%%%%$$$$$$$$$###########
 # git remote add origin https://github.com/VuDinhKhai/socket_server_client.git
 # git branch -M main
 # git push -u origin main
